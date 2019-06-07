@@ -21,7 +21,7 @@ Engine = es.Elasticsearch
 
 MAX_DOC = 1000
 default_index = "robust2004-0.5-1"
-
+#  engine = get_engine(hosts=["big18:9200"])
 
 def get_engine(**kwargs) -> Engine:
     """Get the engine.
