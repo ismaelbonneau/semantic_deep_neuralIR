@@ -1,13 +1,13 @@
 import os, re
 import subprocess
-
 from itertools import accumulate
 from typing import List, Dict, Tuple
-
-import numpy as np
-
 import elasticsearch as es
+import json
+import numpy as np
 import pytrec_eval
+
+
 
 # Typings
 QueryBody = Dict
@@ -82,7 +82,9 @@ def compute_trec_eval(qids, qrel_file_path, response, resp_file_name):
     with open(resp_file_name, "w") as f:
         write_response(qids, response, f)
     
-    command = ["/local/pouyet/py37/trec_eval/trec_eval", "-c", "-q", "-M1001", "-m", "map", qrel_file_path, resp_file_name]
+    command = ["/local/karmim/logiciels/trec_eval/trec_eval", "-c", "-q", "-M1001", "-m", "map", qrel_file_path, resp_file_name]
+    #Le fichier trec_eval est à récuperer ici https://github.com/usnistgov/trec_eval
+    # une fois clone, il faut faire un make dans le dossier et autoriser à l'execution ( chmod +x)
     completed_process = subprocess.run(command, capture_output=True)
     results = completed_process.stdout.decode("utf-8")
 
@@ -108,9 +110,26 @@ def eval_queries(queries: Dict[Id, Query], qrel_file_path: str, engine: Engine,
     msearch_body = _msearch_preprocess(query_texts, index, doc_type)
     res = engine.msearch(msearch_body, index)
     res = res["responses"]
+    print('ok')
     total_score, scores = compute_trec_eval(query_ids, qrel_file_path, res, resp_file_path)
     
     for qid in query_ids:
         if qid not in scores:
             scores[qid] = 0
     return total_score, scores
+
+import ast
+
+if __name__ == "__main__":
+    engine = es.Elasticsearch(["http://big18:9200/"])
+    print("engine ok :",engine)
+    f = open("/local/karmim/Stage_M1_RI/data/robust2004.txt","r")
+    #print(f.read())
+    dico = ast.literal_eval(f.read())
+    f.close()
+    for k in dico:
+        dico[k]= dico[k][0].split(' ') # On suppr les query langage naturel, et on met la query mot clé sous forme de liste.
+    
+    tot_score,scores = eval_queries(dico, qrel_file_path="/local/karmim/Stage_M1_RI/data/qrels.robust2004.txt", engine=engine,resp_file_path="/local/karmim/Stage_M1_RI/results/results.txt", index= "robust2004", doc_type= "trec")
+    print("ecriture résultats ok")
+    print("score MAP :" ,tot_score)
