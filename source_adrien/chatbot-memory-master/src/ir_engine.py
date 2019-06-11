@@ -120,16 +120,3 @@ def eval_queries(queries: Dict[Id, Query], qrel_file_path: str, engine: Engine,
 
 import ast
 
-if __name__ == "__main__":
-    engine = es.Elasticsearch(["http://big18:9200/"])
-    print("engine ok :",engine)
-    f = open("/local/karmim/Stage_M1_RI/data/robust2004.txt","r")
-    #print(f.read())
-    dico = ast.literal_eval(f.read())
-    f.close()
-    for k in dico:
-        dico[k]= dico[k][0].split(' ') # On suppr les query langage naturel, et on met la query mot clé sous forme de liste.
-    
-    tot_score,scores = eval_queries(dico, qrel_file_path="/local/karmim/Stage_M1_RI/data/qrels.robust2004.txt", engine=engine,resp_file_path="/local/karmim/Stage_M1_RI/results/results.txt", index= "robust2004", doc_type= "trec")
-    print("ecriture résultats ok")
-    print("score MAP :" ,tot_score)
