@@ -1,5 +1,9 @@
 """
     auteur : Adrien Pouyet.
+    Description : 
+
+    Fichier de test du modèle BM25 sur l'index construit avec elastic_search sur le cluster des servers lip6 par Adrien Pouyet. 
+    Simple script pour vérifier si le score MAP est cohérent.
 """
 
 
