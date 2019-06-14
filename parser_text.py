@@ -1,7 +1,7 @@
 from gensim.parsing.preprocessing import preprocess_string, strip_tags, strip_punctuation, strip_numeric
 from gensim.parsing.preprocessing import strip_multiple_whitespaces, split_alphanum
 
-CUSTOM_FILTERS = [lambda x: x.lower(), strip_tags, strip_punctuation, strip_numeric,
+CUSTOM_FILTERS = [strip_tags, strip_punctuation, strip_numeric,
                  strip_multiple_whitespaces, split_alphanum]
 
 
