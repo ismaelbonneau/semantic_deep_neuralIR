@@ -8,16 +8,6 @@
 import os
 from bs4 import BeautifulSoup
 
-from parser_text i##########################################################
-#
-# Fichier contenant les fonctions de chargement des documents d'une collection
-#
-# Ismael Bonneau
-##########################################################
-
-import os
-from bs4 import BeautifulSoup
-
 from parser_text import get_docno, get_text, get_title
 
 
