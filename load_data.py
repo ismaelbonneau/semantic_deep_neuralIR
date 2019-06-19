@@ -60,7 +60,7 @@ import string
 table = str.maketrans('', '', '!"#$%\'()*+,-./:;<=>?@[\\]^_`{|}~')
 
 def custom_tokenizer(s):
-    return [w.translate(table) for w in preprocess_string(s, [lambda x: x.lower(), strip_tags, lambda x: strip_short(x, 2)])]
+    return [w.translate(table) for w in preprocess_string(s, [lambda x: x.lower(), strip_tags, lambda x: strip_short(x, 2), remove_stopwords])]
 
 
 class Dataset:
@@ -148,11 +148,7 @@ class Dataset:
 		print("relevance chargé\n")
 
 	def embedding_exist(self, term):
-		if len(term) < 2:
-			return False #je sais pas pourquoi il bug des fois
-		if (term[0].upper() + term[1:]) in self.model_wv:
-			return term[0].upper() + term[1:]
-		elif term in self.model_wv:
+		if term in self.model_wv:
 			return term
 		elif term.upper() in self.model_wv:
 			return term.upper()
