@@ -70,7 +70,6 @@ class Dataset:
 		all_doc : dictionnaire de tout nos documents afin d'itérer dessus. 
 		"""
 		self.intervals = intervals
-		self.intvlsArray = np.linspace(-1, 1, self.intervals)
 		self.normalize = normalize
 		self.model_wv = model_wv
 
