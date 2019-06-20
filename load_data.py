@@ -101,6 +101,8 @@ class Dataset:
 		for i, queryterm in enumerate(query):
 			if queryterm.lower() in self.idf_values: #forcer la mise en majuscules on sait jamais
 				vec[i] = self.idf_values[queryterm.lower()]
+			elif queryterm in self.idf_values:
+				vec[i] = self.idf_values[queryterm]
 		return vec
 
 
@@ -168,65 +170,31 @@ class Dataset:
 		"""
 		"""
 
-		#spliter les requêtes en train/test
+		#preparer les vecteurs d'idf des termes des requetes
 		lol = [q for q in self.d_query.keys() if q in self.paires]
-		random.shuffle(lol)
-		test_keys = lol[:int(test_size * len(lol))]
-		train_keys = lol[int(test_size * len(lol)):]
-		print("%d requetes en train, %d en test" % (len(train_keys), len(test_keys)))
+		query_idf = {}
+		for id_requete in lol:
+			query_idf[id_requete] = self.get_idf_vec(custom_tokenizer(self.d_query[id_requete]))
+		pickle.dump(query_idf, open("saved_data/query_idf.pkl", "wb"))
+		del query_idf
+
+		print("nombre de requetes: %d." % len(lol))
 		
 		#pour chaque requête on va générer autant de paires relevant que irrelevant
-		#pour nos besoins on va alterner paires positives et paires négatives
-		train_hist = [] # les histogrammes d'interraction
-		test_hist = []
-		train_idf = [] #les vecteurs d'idf
-		test_idf = []
-		
-		for id_requete in train_keys:
-			#recuperer les mots dont on connait les embeddings dans la query
-			query_embeddings = np.zeros((self.max_length_query, 300))
-			i = 0
-			for word in custom_tokenizer(self.d_query[id_requete]):
-				if word in self.model_wv:
-					query_embeddings.append(self.model_wv[word])
-			query_embeddings = np.array(query_embeddings)
+		#on va créer autant de fichiers que de requêtes:
+		#chaque fichier va contenir des matrices d'interraction, alternée exemple positif/exemple négatif.
 
-			idf_vec = self.get_idf_vec(q)
-			for pos, neg in zip(self.paires[id_requete]["relevant"], self.paires[id_requete]["irrelevant"]):
-				#lire le doc, la requete et creer l'histogramme d'interraction
-				pos_embeddings = []
-				for word in custom_tokenizer(self.docs[pos]['text']):
-					if word in self.model_wv:
-						pos_embeddings.append(self.model_wv[word])
-				pos_embeddings = np.array(pos_embeddings)
-
-				train_hist.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
-				train_idf.append(idf_vec) #append le vecteur idf de la requête
-				
-				neg_embeddings = []
-				for word in custom_tokenizer(self.docs[neg]['text']):
-					if word in self.model_wv:
-						neg_embeddings.append(self.model_wv[word])
-				neg_embeddings = np.array(neg_embeddings)
-
-				train_hist.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
-				train_idf.append(idf_vec) #append le vecteur idf de la requête
-
-		train_labels = np.zeros(len(train_hist))
-		train_labels[::2] = 1 # label de pertinence 
-		print("train data completed")
-		
-		"""
-		for id_requete in test_keys:
+		for id_requete in lol:
 			#recuperer les mots dont on connait les embeddings dans la query
 			query_embeddings = np.zeros((self.max_length_query, 300))
 			i = 0
 			for word in custom_tokenizer(self.d_query[id_requete]):
 				if word in self.model_wv:
 					query_embeddings[i] = self.model_wv[word]
-					i+=1
+			query_embeddings = np.array(query_embeddings)
 
-			idf_vec = self.get_idf_vec(q)
+			interractions = []
+
 			for pos, neg in zip(self.paires[id_requete]["relevant"], self.paires[id_requete]["irrelevant"]):
 				#lire le doc, la requete et creer l'histogramme d'interraction
 				pos_embeddings = []
@@ -235,8 +203,7 @@ class Dataset:
 						pos_embeddings.append(self.model_wv[word])
 				pos_embeddings = np.array(pos_embeddings)
 
-				test_hist.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
-				test_idf.append(idf_vec) #append le vecteur idf de la requête
+				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
 				
 				neg_embeddings = []
 				for word in custom_tokenizer(self.docs[neg]['text']):
@@ -244,17 +211,11 @@ class Dataset:
 						neg_embeddings.append(self.model_wv[word])
 				neg_embeddings = np.array(neg_embeddings)
 
-				test_hist.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
-				test_idf.append(idf_vec) #append le vecteur idf de la requête
+				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
-		test_labels = np.zeros(len(train_hist))
-		test_labels[::2] = 1
-		print("test data completed")
-		"""
-
-		return (train_hist, train_idf, train_labels), test_keys
-		
-		#éventuellement sauvegarder tout ça sur le disque comme ça c fait une bonne fois pour toutes...
+			np.save("saved_data/"+id_requete+"_interractions.npy", np.array(interractions))
+			print('requete %s complete' % id_requete)
+		print("data completed")
 
 
 # La Ducance
