@@ -55,6 +55,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 import codecs
 from gensim.models.wrappers import FastText
 
+EPS = 10e-7
+
 
 import string
 table = str.maketrans('', '', '!"#$%\'()*+,-./:;<=>?@[\\]^_`{|}~')
@@ -163,7 +165,10 @@ class Dataset:
 		query: matrice (nbtermequery x vector_size)
 		document: matrice (nbtermedocument x vector_size)
 		"""
-		return np.apply_along_axis(lambda x: np.histogram(x, self.intervals)[0], 1, np.dot(query, document.T))
+		cos = np.dot(query, document.T)
+		cos = cos / (np.linalg.norm(query, axis=1)[:, None] + EPS)
+		cos = cos / (np.linalg.norm(document, axis=1) + EPS)
+		return np.apply_along_axis(lambda x: np.histogram(x, bins=self.intervals, range=(-1,1))[0], 1, cos)
 
 
 	def prepare_data_forNN(self, test_size=0.2):
@@ -191,6 +196,7 @@ class Dataset:
 			for word in custom_tokenizer(self.d_query[id_requete]):
 				if word in self.model_wv:
 					query_embeddings[i] = self.model_wv[word]
+					i += 1
 			query_embeddings = np.array(query_embeddings)
 
 			interractions = []
