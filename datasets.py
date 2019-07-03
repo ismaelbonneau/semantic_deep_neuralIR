@@ -14,7 +14,7 @@ import os
 import pickle
 from os import listdir,sep
 from os.path import isfile, join
-from gensim.parsing.preprocessing import preprocess_string,remove_stopwords,strip_numeric, strip_tags, strip_punctuation, strip_short
+from gensim.parsing.preprocessing import preprocess_string,remove_stopwords,strip_numeric, strip_tags, strip_punctuation, strip_short, strip_multiple_whitespaces
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 import codecs
@@ -26,8 +26,15 @@ EPS = 10e-7
 import string
 table = str.maketrans('', '', '!"#$%\'()*+,-./:;<=>?@[\\]^_`{|}~')
 
+import krovetz
+# Krovetz stemmer est un stemmer moins "destructif" que le porter.
+# Viewing morphology as an inference process: https://dl.acm.org/citation.cfm?id=160718
+ks = krovetz.PyKrovetzStemmer()
+
+CUSTOM_FILTERS = [lambda x: x.lower(), strip_tags, strip_multiple_whitespaces, strip_punctuation, remove_stopwords, lambda x: ks.stem(x)]
+
 def custom_tokenizer(s):
-    return [w.translate(table) for w in preprocess_string(s, [lambda x: x.lower(), strip_tags, lambda x: strip_short(x, 2), remove_stopwords])]
+    return [w.translate(table) for w in preprocess_string(s, [lambda x: x.lower(), strip_tags, lambda x: strip_short(x, 2), remove_stopwords, lambda x: ks.stem(x)])]
 
 
 class Dataset:
@@ -138,7 +145,7 @@ class Robust04(Dataset):
 		cos = np.dot(query, document.T)
 		cos = cos / (np.linalg.norm(query, axis=1)[:, None] + EPS)
 		cos = cos / (np.linalg.norm(document, axis=1) + EPS)
-		return np.apply_along_axis(lambda x: np.log(np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
+		return np.apply_along_axis(lambda x: np.log(EPS + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
 
 
 	def prepare_data_forNN(self, test_size=0.2):
