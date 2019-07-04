@@ -15,7 +15,7 @@ assert engine.ping()
 def search(query, limit=2000):
 	return engine.search(index=indexname, body={"_source": False,
 	'size': limit,
-	'query': {'match': {"text": query}}}, request_timeout=30)['hits']['hits']
+	'query': {"query_string": {"query": query}}}, request_timeout=30)['hits']['hits']
 
 
 with open(req_path, "r") as f:
