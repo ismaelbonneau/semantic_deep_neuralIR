@@ -145,7 +145,7 @@ class Robust04(Dataset):
 		cos = np.dot(query, document.T)
 		cos = cos / (np.linalg.norm(query, axis=1)[:, None] + EPS)
 		cos = cos / (np.linalg.norm(document, axis=1) + EPS)
-		return np.apply_along_axis(lambda x: np.log(EPS + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
+		return np.apply_along_axis(lambda x: np.log10(1 + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
 
 
 	def prepare_data_forNN(self, test_size=0.2):
@@ -178,6 +178,8 @@ class Robust04(Dataset):
 
 			interractions = []
 
+
+			#pour chaque document relevant, on prend 10 documents non relevant pour cette requete (d'apres qrels)
 			for pos, neg in zip(self.paires[id_requete]["relevant"], self.paires[id_requete]["irrelevant"]):
 				#lire le doc, la requete et creer l'histogramme d'interraction
 				pos_embeddings = []
@@ -195,6 +197,18 @@ class Robust04(Dataset):
 				neg_embeddings = np.array(neg_embeddings)
 
 				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+
+				augment = np.random.choice(self.paires[id_requete]["irrelevant"], 9, replace=False)
+				for neg in augment:
+					neg_embeddings = []
+					for word in custom_tokenizer(self.docs[neg]['text']):
+						if word in self.model_wv:
+							neg_embeddings.append(self.model_wv[word])
+					neg_embeddings = np.array(neg_embeddings)
+
+					interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
+					interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+
 
 			np.save("saved_data/"+id_requete+"_interractions.npy", np.array(interractions))
 		print("data completed")
@@ -220,7 +234,7 @@ class Robust04(Dataset):
 				query_embeddings = np.array(query_embeddings)
 
 				interractions = []
-				for id_doc in bm25_query_results[id_requete]:
+				for id_doc, score in bm25_query_results[id_requete]:
 					document_embeddings = []
 					for word in custom_tokenizer(self.docs[id_doc]['text']):
 						if word in self.model_wv:
