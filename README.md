@@ -1,5 +1,5 @@
 # Deep Semantic RI model
-_Ismaël Bonneau et Yannis Karmim - stage de M1 au LIP6 équipe MLIA_
+_Ismaël Bonneau - stage de M1 au LIP6 équipe MLIA_
 
 ## Modèle d'interactions pour la Recherche d'Information sémantique.
 
