@@ -26,15 +26,15 @@ EPS = 10e-7
 import string
 table = str.maketrans('', '', '!"#$%\'()*+,-./:;<=>?@[\\]^_`{|}~')
 
-import krovetz
 # Krovetz stemmer est un stemmer moins "destructif" que le porter.
 # Viewing morphology as an inference process: https://dl.acm.org/citation.cfm?id=160718
-ks = krovetz.PyKrovetzStemmer()
+from krovetzstemmer import Stemmer #stemmer pas mal pour la PR
+ks = Stemmer()
 
 CUSTOM_FILTERS = [lambda x: x.lower(), strip_tags, strip_multiple_whitespaces, strip_punctuation, remove_stopwords, lambda x: ks.stem(x)]
 
 def custom_tokenizer(s):
-    return [w.translate(table) for w in preprocess_string(s, [lambda x: x.lower(), strip_tags, lambda x: strip_short(x, 2), remove_stopwords, lambda x: ks.stem(x)])]
+    return [w.translate(table) for w in preprocess_string(s, [strip_tags, lambda x: strip_short(x, 2), remove_stopwords, lambda x: ks.stem(x)])]
 
 
 class Dataset:
@@ -92,9 +92,11 @@ class Robust04(Dataset):
 		with open(file_query, "r") as f:
 			self.d_query = ast.literal_eval(f.read())
 
+		#on applique Krovetz sur les termes des queries
 		for k in self.d_query :
-			self.d_query[k]= self.d_query[k][0] # On suppr les query langage naturel, et on garde que la query mot clé
-		self.max_length_query =  np.max([len(self.d_query[q].split()) for q in self.d_query])
+			prout = " ".join([ks.stem(x) for x in self.d_query[k][0].split()])
+			self.d_query[k]= " ".join(custom_tokenizer(prout)) # On suppr les query langage naturel, et on garde que la query mot clé
+		self.max_length_query =  4
 		print("query chargé")
 
 
@@ -131,8 +133,6 @@ class Robust04(Dataset):
 	def embedding_exist(self, term):
 		if term in self.model_wv:
 			return term
-		elif term.upper() in self.model_wv:
-			return term.upper()
 		else:
 			return False
 
@@ -148,7 +148,7 @@ class Robust04(Dataset):
 		return np.apply_along_axis(lambda x: np.log10(1 + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
 
 
-	def prepare_data_forNN(self, test_size=0.2):
+	def prepare_data_forNN(self, dossier):
 		"""
 		"""
 
@@ -170,7 +170,7 @@ class Robust04(Dataset):
 			#recuperer les mots dont on connait les embeddings dans la query
 			query_embeddings = np.zeros((self.max_length_query, 300))
 			i = 0
-			for word in custom_tokenizer(self.d_query[id_requete]):
+			for word in self.d_query[id_requete].split():
 				if word in self.model_wv:
 					query_embeddings[i] = self.model_wv[word]
 					i += 1
@@ -179,11 +179,11 @@ class Robust04(Dataset):
 			interractions = []
 
 
-			#pour chaque document relevant, on prend 10 documents non relevant pour cette requete (d'apres qrels)
+			#pour chaque document relevant, on prend 5 documents non relevant pour cette requete (d'apres qrels)
 			for pos, neg in zip(self.paires[id_requete]["relevant"], self.paires[id_requete]["irrelevant"]):
 				#lire le doc, la requete et creer l'histogramme d'interraction
 				pos_embeddings = []
-				for word in custom_tokenizer(self.docs[pos]['text']):
+				for word in self.docs[pos]['text'].split():
 					if word in self.model_wv:
 						pos_embeddings.append(self.model_wv[word])
 				pos_embeddings = np.array(pos_embeddings)
@@ -191,17 +191,17 @@ class Robust04(Dataset):
 				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
 				
 				neg_embeddings = []
-				for word in custom_tokenizer(self.docs[neg]['text']):
+				for word in self.docs[neg]['text'].split():
 					if word in self.model_wv:
 						neg_embeddings.append(self.model_wv[word])
 				neg_embeddings = np.array(neg_embeddings)
 
 				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
-				augment = np.random.choice(self.paires[id_requete]["irrelevant"], 9, replace=False)
+				augment = np.random.choice(self.paires[id_requete]["irrelevant"], 5, replace=False)
 				for neg in augment:
 					neg_embeddings = []
-					for word in custom_tokenizer(self.docs[neg]['text']):
+					for word in self.docs[neg]['text'].split():
 						if word in self.model_wv:
 							neg_embeddings.append(self.model_wv[word])
 					neg_embeddings = np.array(neg_embeddings)
@@ -244,7 +244,6 @@ class Robust04(Dataset):
 
 				#sauvegarde les 2000 matrices d'interraction par requete
 				np.save("data/bm25_robust/"+id_requete+"_interractions.npy", np.array(interractions))
-				print('requete %s complete' % id_requete)
 		print("data completed")
 
 
