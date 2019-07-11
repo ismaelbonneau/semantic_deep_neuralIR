@@ -145,7 +145,7 @@ class Robust04(Dataset):
 		cos = np.dot(query, document.T)
 		cos = cos / (np.linalg.norm(query, axis=1)[:, None] + EPS)
 		cos = cos / (np.linalg.norm(document, axis=1) + EPS)
-		return np.apply_along_axis(lambda x: np.log10(1 + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
+		return np.apply_along_axis(lambda x: np.histogram(x, bins=self.intervals, range=(-1,1))[0], 1, cos) #log de l'histogramme
 
 
 	def prepare_data_forNN(self, dossier):
