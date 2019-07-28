@@ -55,28 +55,20 @@ class Robust04(Dataset):
 	def load_idf(self, idf_file):
 		self.idf_values = pickle.load(open(idf_file, "rb"))
 
-	def get_vocab(self):
-		return self.model_wv.wv.vocab
-
-	def get_query(self, key, affiche=True):
-		if affiche:
-			print("query: ",key," ",self.d_query[key])
-		return self.d_query[key]
-
-	def get_doc(self,key,affiche=True):
-		if affiche:
-			print("doc: ",key," ",self.docs[key])
-		return self.docs[key]
-
-	def get_relevance(self,q_id,affiche=True):
-		if affiche: 
-			print("query: ",q_id," ",self.paires[q_id]['relevant'])
-		return self.paires[q_id]['relevant']
+	def embedding_exists(self, word):
+		if word in self.model_wv:
+			return word
+		if ks.stem(word) in self.model_wv:
+			return ks.stem(word)
+		elif word.capitalize() in self.model_wv:
+			return word.capitalize()
+		else:
+			return ""
 
 	def get_idf_vec(self, query):
 		"""
 		"""
-		vec = np.ones(self.max_length_query)
+		vec = np.zeros(self.max_length_query)
 		for i, queryterm in enumerate(query):
 			if queryterm.lower() in self.idf_values: #forcer la mise en majuscules on sait jamais
 				vec[i] = self.idf_values[queryterm.lower()]
@@ -130,22 +122,13 @@ class Robust04(Dataset):
 		
 		print("relevance chargé")
 
-	def embedding_exist(self, term):
-		if term in self.model_wv:
-			return term
-		else:
-			return False
-
-
 	def hist(self, query, document):
 		"""
 		query: matrice (nbtermequery x vector_size)
 		document: matrice (nbtermedocument x vector_size)
 		"""
 		cos = np.dot(query, document.T)
-		cos = cos / (np.linalg.norm(query, axis=1)[:, None] + EPS)
-		cos = cos / (np.linalg.norm(document, axis=1) + EPS)
-		return np.apply_along_axis(lambda x: np.histogram(x, bins=self.intervals, range=(-1,1))[0], 1, cos) #log de l'histogramme
+		return np.apply_along_axis(lambda x: np.log10(1 + np.histogram(x, bins=self.intervals, range=(-1,1))[0]), 1, cos) #log de l'histogramme
 
 
 	def prepare_data_forNN(self, dossier):
@@ -162,6 +145,8 @@ class Robust04(Dataset):
 
 		print("nombre de requetes: %d." % len(lol))
 		
+		tiascompris = list(self.docs.keys())
+		lol.remove("634")
 		#pour chaque requête on va générer autant de paires relevant que irrelevant
 		#on va créer autant de fichiers que de requêtes:
 		#chaque fichier va contenir des matrices d'interraction, alternée exemple positif/exemple négatif.
@@ -171,16 +156,17 @@ class Robust04(Dataset):
 			query_embeddings = np.zeros((self.max_length_query, 300))
 			i = 0
 			for word in self.d_query[id_requete].split():
-				if word in self.model_wv:
-					query_embeddings[i] = self.model_wv[word]
-					i += 1
+				correct_word = self.embedding_exists(word)
+				if correct_word != "":
+					query_embeddings[i] = self.model_wv[correct_word]
+				i += 1
 			query_embeddings = np.array(query_embeddings)
 
 			interractions = []
 
 
-			#pour chaque document relevant, on prend 5 documents non relevant pour cette requete (d'apres qrels)
-			for pos, neg in zip(self.paires[id_requete]["relevant"], self.paires[id_requete]["irrelevant"]):
+
+			for pos in self.paires[id_requete]["relevant"][:100]:
 				#lire le doc, la requete et creer l'histogramme d'interraction
 				pos_embeddings = []
 				for word in self.docs[pos]['text'].split():
@@ -189,7 +175,9 @@ class Robust04(Dataset):
 				pos_embeddings = np.array(pos_embeddings)
 
 				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
-				
+
+				#sampler un document au hasard
+				neg = np.random.choice(tiascompris, 1, replace=False)[0]
 				neg_embeddings = []
 				for word in self.docs[neg]['text'].split():
 					if word in self.model_wv:
@@ -198,16 +186,42 @@ class Robust04(Dataset):
 
 				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
-				augment = np.random.choice(self.paires[id_requete]["irrelevant"], 5, replace=False)
-				for neg in augment:
-					neg_embeddings = []
-					for word in self.docs[neg]['text'].split():
-						if word in self.model_wv:
-							neg_embeddings.append(self.model_wv[word])
-					neg_embeddings = np.array(neg_embeddings)
+				# sampler un document non pertinent au sens de qrels
+				neg = np.random.choice(self.paires[id_requete]["irrelevant"], 1, replace=False)[0]
+				neg_embeddings = []
+				for word in self.docs[neg]['text'].split():
+					if word in self.model_wv:
+						neg_embeddings.append(self.model_wv[word])
+				neg_embeddings = np.array(neg_embeddings)
 
-					interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
-					interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc négatif
+				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+
+			#positive sampling
+			# if len(self.paires[id_requete]["relevant"]) < 100:
+			# 	pairesajoutees = 0
+
+			# 	while pairesajoutees < 100:
+			# 		pos = np.random.choice(self.paires[id_requete]["relevant"], 1, replace=False)[0]
+			# 		neg = np.random.choice(tiascompris, 1, replace=False)[0]
+
+			# 		pos_embeddings = []
+			# 		for word in self.docs[pos]['text'].split():
+			# 			if word in self.model_wv:
+			# 				pos_embeddings.append(self.model_wv[word])
+			# 		pos_embeddings = np.array(pos_embeddings)
+
+			# 		interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
+
+			# 		neg_embeddings = []
+			# 		for word in self.docs[neg]['text'].split():
+			# 			if word in self.model_wv:
+			# 				neg_embeddings.append(self.model_wv[word])
+			# 		neg_embeddings = np.array(neg_embeddings)
+
+			# 		interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+
+			print("requete %s complete." % id_requete)
 
 
 			np.save("saved_data/"+id_requete+"_interractions.npy", np.array(interractions))
@@ -228,9 +242,10 @@ class Robust04(Dataset):
 				query_embeddings = np.zeros((self.max_length_query, 300))
 				i = 0
 				for word in custom_tokenizer(self.d_query[id_requete]):
-					if word in self.model_wv:
-						query_embeddings[i] = self.model_wv[word]
-						i += 1
+					correct_word = self.embedding_exists(word)
+					if correct_word != "":
+						query_embeddings[i] = self.model_wv[correct_word]
+					i += 1
 				query_embeddings = np.array(query_embeddings)
 
 				interractions = []
