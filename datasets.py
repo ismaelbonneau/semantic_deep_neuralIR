@@ -18,7 +18,6 @@ from gensim.parsing.preprocessing import preprocess_string,remove_stopwords,stri
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 import codecs
-from gensim.models.wrappers import FastText
 
 EPS = 10e-7
 
@@ -54,16 +53,6 @@ class Robust04(Dataset):
 
 	def load_idf(self, idf_file):
 		self.idf_values = pickle.load(open(idf_file, "rb"))
-
-	def embedding_exists(self, word):
-		if word in self.model_wv:
-			return word
-		if ks.stem(word) in self.model_wv:
-			return ks.stem(word)
-		elif word.capitalize() in self.model_wv:
-			return word.capitalize()
-		else:
-			return ""
 
 	def get_idf_vec(self, query):
 		"""
@@ -156,9 +145,8 @@ class Robust04(Dataset):
 			query_embeddings = np.zeros((self.max_length_query, 300))
 			i = 0
 			for word in self.d_query[id_requete].split():
-				correct_word = self.embedding_exists(word)
-				if correct_word != "":
-					query_embeddings[i] = self.model_wv[correct_word]
+				if word in self.model_wv:
+					query_embeddings[i] = self.model_wv[word]
 				i += 1
 			query_embeddings = np.array(query_embeddings)
 
@@ -197,30 +185,6 @@ class Robust04(Dataset):
 				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc négatif
 				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
-			#positive sampling
-			# if len(self.paires[id_requete]["relevant"]) < 100:
-			# 	pairesajoutees = 0
-
-			# 	while pairesajoutees < 100:
-			# 		pos = np.random.choice(self.paires[id_requete]["relevant"], 1, replace=False)[0]
-			# 		neg = np.random.choice(tiascompris, 1, replace=False)[0]
-
-			# 		pos_embeddings = []
-			# 		for word in self.docs[pos]['text'].split():
-			# 			if word in self.model_wv:
-			# 				pos_embeddings.append(self.model_wv[word])
-			# 		pos_embeddings = np.array(pos_embeddings)
-
-			# 		interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
-
-			# 		neg_embeddings = []
-			# 		for word in self.docs[neg]['text'].split():
-			# 			if word in self.model_wv:
-			# 				neg_embeddings.append(self.model_wv[word])
-			# 		neg_embeddings = np.array(neg_embeddings)
-
-			# 		interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
-
 			print("requete %s complete." % id_requete)
 
 
@@ -242,9 +206,8 @@ class Robust04(Dataset):
 				query_embeddings = np.zeros((self.max_length_query, 300))
 				i = 0
 				for word in custom_tokenizer(self.d_query[id_requete]):
-					correct_word = self.embedding_exists(word)
-					if correct_word != "":
-						query_embeddings[i] = self.model_wv[correct_word]
+					if word in self.model_wv:
+						query_embeddings[i] = self.model_wv[word]
 					i += 1
 				query_embeddings = np.array(query_embeddings)
 
