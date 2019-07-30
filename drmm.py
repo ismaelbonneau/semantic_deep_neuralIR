@@ -5,22 +5,10 @@ from torch.nn import MarginRankingLoss
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
-
-class AttentionLayer(torch.nn.Module):
-    def __init__(self, n):
-        super(AttentionLayer, self).__init__()
-        #self.weights = torch.nn.Parameter(torch.Tensor(1, n))  # define the trainable parameter
-        self.weights = torch.nn.Parameter(torch.rand(1))
-
-    def forward(self, x):
-        # assuming x is of size b-1-h-w
-        return x * self.weights  # element-wise multiplication
-
 #hérite de la classe Pytorch Module
 class DRMM(torch.nn.Module):
     def __init__(self, hist_size, query_term_maxlen, hidden_sizes=[5,1], use_cuda=True):
         super(DRMM, self).__init__()
-        #nn.Sequential
         self.mlp = nn.Sequential(nn.Linear(hist_size, hidden_sizes[0]), nn.Tanh(), 
             nn.Linear(hidden_sizes[0], hidden_sizes[1]), nn.Tanh())
         #initialisation du vecteur de term gating
@@ -31,12 +19,12 @@ class DRMM(torch.nn.Module):
     def forward(self, interractions, termvector):
         """
         interractions: (query_term_maxlen, hist_size)
-        termvector: 
+        termvector: (1, query_term_maxlen)
         """
         #partie histogramme
         interractions_output = self.mlp(interractions).squeeze()
         # partie term gating
-        gating_output = torch.nn.functional.softmax((self.termgating * termvector).squeeze(), dim=1) #passe de (query_term_maxlen, 1) à (1, query_term_maxlen)
+        gating_output = torch.nn.functional.softmax((self.termgating * termvector).squeeze(), dim=1)
         #combiner les 2 avec un produit scalaire
         axis = 1
         s = torch.sum(gating_output * interractions_output, dim = axis)
@@ -49,9 +37,17 @@ class DRMM(torch.nn.Module):
         return sum([p.size(0) if len(p.size()) == 1 else p.size(0)*p.size(1) for p in self.parameters()])
     
     def __str__(self):
-        return "DRMM with {} parameters. ti as compris".format(self.get_model_size())
+        return "DRMM with {} parameters.".format(self.get_model_size())
+
+
 
 class DrmmDataset(Dataset):
+    """
+    Cette classe va nous permettre de gérer
+    le découpage en mini batches et le shuffle. 
+    C'est un wrapper pour la classe DataSet 
+    qui fournit entre autres un itérateur.
+    """
     def __init__(self, pos_tensor, neg_tensor):
         self.x = pos_tensor
         self.y = neg_tensor
