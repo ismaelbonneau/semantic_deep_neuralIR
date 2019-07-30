@@ -39,7 +39,6 @@ class DRMM(torch.nn.Module):
         gating_output = torch.nn.functional.softmax((self.termgating * termvector).squeeze(), dim=1) #passe de (query_term_maxlen, 1) à (1, query_term_maxlen)
         #combiner les 2 avec un produit scalaire
         axis = 1
-        #print(gating_output.size(), interractions_output.size())
         s = torch.sum(gating_output * interractions_output, dim = axis)
         return s
     
