@@ -7,13 +7,13 @@ from torch.utils.data import DataLoader
 
 #hérite de la classe Pytorch Module
 class DRMM(torch.nn.Module):
-    def __init__(self, hist_size, query_term_maxlen, hidden_sizes=[5,1], use_cuda=True):
+    def __init__(self, hist_size, query_term_maxlen, hidden_sizes=[20,1], use_cuda=True):
         super(DRMM, self).__init__()
         self.mlp = nn.Sequential(nn.Linear(hist_size, hidden_sizes[0]), nn.Tanh(), 
             nn.Linear(hidden_sizes[0], hidden_sizes[1]), nn.Tanh())
         #initialisation du vecteur de term gating
         
-        self.termgating = torch.nn.Parameter(torch.rand(1), requires_grad=True)
+        self.termgating = torch.nn.Parameter(torch.randn(1), requires_grad=True)
         
     #méthode forward à redéfinir
     def forward(self, interractions, termvector):
@@ -24,10 +24,9 @@ class DRMM(torch.nn.Module):
         #partie histogramme
         interractions_output = self.mlp(interractions).squeeze()
         # partie term gating
-        gating_output = torch.nn.functional.softmax((self.termgating * termvector).squeeze(), dim=1)
-        #combiner les 2 avec un produit scalaire
-        axis = 1
-        s = torch.sum(gating_output * interractions_output, dim = axis)
+        gating_output = torch.nn.functional.softmax((self.termgating * termvector.squeeze()).squeeze(), dim=1)
+        #combiner les 2 avec un produit terme à terme
+        s = torch.sum(gating_output * interractions_output, dim = 1)
         return s
     
     def get_model_size(self):
@@ -44,9 +43,8 @@ class DRMM(torch.nn.Module):
 class DrmmDataset(Dataset):
     """
     Cette classe va nous permettre de gérer
-    le découpage en mini batches et le shuffle. 
-    C'est un wrapper pour la classe DataSet 
-    qui fournit entre autres un itérateur.
+    le découpage en paires relevant et paires
+    non relevant
     """
     def __init__(self, pos_tensor, neg_tensor):
         self.x = pos_tensor
@@ -72,7 +70,7 @@ def drmm_make_train_step(model, loss_fn, optimizer):
         #reset des gradients après le passage sur ce batch
         optimizer.zero_grad()
         #retourner la loss
-        return loss.item() #.item()
+        return loss.item()
     
     return drmm_train_step
 

@@ -154,7 +154,7 @@ class Robust04(Dataset):
 
 
 
-			for pos in self.paires[id_requete]["relevant"][:100]:
+			for pos in self.paires[id_requete]["relevant"]:
 				#lire le doc, la requete et creer l'histogramme d'interraction
 				pos_embeddings = []
 				for word in self.docs[pos]['text'].split():
@@ -165,14 +165,14 @@ class Robust04(Dataset):
 				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc positif
 
 				#sampler un document au hasard
-				neg = np.random.choice(tiascompris, 1, replace=False)[0]
-				neg_embeddings = []
-				for word in self.docs[neg]['text'].split():
-					if word in self.model_wv:
-						neg_embeddings.append(self.model_wv[word])
-				neg_embeddings = np.array(neg_embeddings)
+				#neg = np.random.choice(tiascompris, 1, replace=False)[0]
+				#neg_embeddings = []
+				#for word in self.docs[neg]['text'].split():
+				#	if word in self.model_wv:
+				#		neg_embeddings.append(self.model_wv[word])
+				#neg_embeddings = np.array(neg_embeddings)
 
-				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
+				#interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
 				# sampler un document non pertinent au sens de qrels
 				neg = np.random.choice(self.paires[id_requete]["irrelevant"], 1, replace=False)[0]
@@ -182,7 +182,7 @@ class Robust04(Dataset):
 						neg_embeddings.append(self.model_wv[word])
 				neg_embeddings = np.array(neg_embeddings)
 
-				interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc négatif
+				#interractions.append(self.hist(query_embeddings, pos_embeddings)) #append le doc négatif
 				interractions.append(self.hist(query_embeddings, neg_embeddings)) #append le doc négatif
 
 			print("requete %s complete." % id_requete)

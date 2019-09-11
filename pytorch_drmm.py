@@ -56,7 +56,7 @@ def get_random_sample_loader(train_dict, test_dict, batchsize=20):
     interractions_train_pos = []
     interractions_train_neg = []
 
-    sample_size = 40
+    sample_size = 10
     for id_requete in train_dict:
         for i in np.random.choice(len(train_dict[id_requete]["pos"]), min(sample_size, len(train_dict[id_requete]["pos"])), replace=False):
             interractions_train_pos.append(train_dict[id_requete]["pos"][i])
@@ -71,16 +71,11 @@ def get_random_sample_loader(train_dict, test_dict, batchsize=20):
             interractions_test_pos.append(doc)
         for doc in test_dict[id_requete]["neg"]:
             interractions_test_neg.append(doc)
-
-    train_dataset = DrmmDataset(interractions_train_pos, 
-                                interractions_train_neg)
-    
-    val_dataset = DrmmDataset(interractions_test_pos,
-                              interractions_test_neg)
-
     #classe utile pour gérer les mini batches et le shuffle (crucial!)
-    train_loader = DataLoader(dataset=train_dataset, batch_size=batchsize, shuffle=True)
-    val_loader = DataLoader(dataset=val_dataset, batch_size=len(interractions_test_neg), shuffle=False) 
+    train_loader = DataLoader(dataset=DrmmDataset(interractions_train_pos, 
+                                interractions_train_neg), batch_size=batchsize, shuffle=True)
+    val_loader = DataLoader(dataset=DrmmDataset(interractions_test_pos,
+                              interractions_test_neg), batch_size=len(interractions_test_neg), shuffle=False) 
 
     return train_loader, val_loader
 
@@ -107,7 +102,7 @@ for k in range(5):
     drmm = DRMM(30, 4, hidden_sizes=[20,1])
 
     hingeloss = MarginRankingLoss(margin=1)
-    optimizer = torch.optim.Adam(drmm.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(drmm.parameters(), lr = 0.001)
 
     bm25_dict = pickle.load(open("results_bm25_robust.pkl", "rb"))
     reranker = Reranker(bm25_dict)
@@ -134,12 +129,12 @@ for k in range(5):
         tiacompris = []
         for pos_batch, neg_batch in train_loader:
 
-            #pos_batch[0]: les interractions positives
-            #pos_batch[1]: les query term
-            #neg_batch[0]: les interractions négatives correspondantes...
-            #neg_batch[1]: les query term correspondantes...
+            # pos_batch[0]: les interractions positives
+            # pos_batch[1]: les query term
+            # neg_batch[0]: les interractions négatives correspondantes...
+            # neg_batch[1]: les query term correspondantes...
             
-            #évaluation empirical loss + backward pass
+            # évaluation empirical loss + backward pass
             tiacompris.append(make_train_step(pos_batch, neg_batch))
 
         losses.append(np.array(tiacompris).mean())
@@ -152,14 +147,14 @@ for k in range(5):
             val_losses.append(np.array(tiacompris).mean())
 
         if i % 10 == 0:
-            reranked_dict_train = reranker.rerank()
-            reranker.save_results(reranked_dict_train, "rerank_train")
-            train_treceval = compute_trec_eval("qrels_train_fold{}.txt".format(k), "rerank_train")
+            reranked_dict_train = reranker.rerank(list(train_dict.keys()))
+            reranker.save_results(reranked_dict_train, "data/rerank_train")
+            train_treceval = compute_trec_eval("data/qrels_train_fold{}.txt".format(k), "data/rerank_train")
             reranked_dict_test = reranker.rerank(list(test_dict.keys()))
-            reranker.save_results(reranked_dict_test, "rerank_test")
-            val_treceval = compute_trec_eval("qrels_test_fold{}.txt".format(k), "rerank_test")
+            reranker.save_results(reranked_dict_test, "data/rerank_test")
+            val_treceval = compute_trec_eval("data/qrels_test_fold{}.txt".format(k), "data/rerank_test")
 
-            #log(i, train_treceval, val_treceval, losses, val_losses)
+            log(i, train_treceval, val_treceval, losses, val_losses)
 
             train_metrics.append(train_treceval["map"])
             val_metrics.append(val_treceval["map"])
